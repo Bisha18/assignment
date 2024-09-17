@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Checkbox } from 'primereact/checkbox';
+import { OverlayPanel } from 'primereact/overlaypanel';
 import HeaderCheckbox from './HeaderCheckbox'; // Import the header checkbox component
+import { DataTableStateEvent } from 'primereact/datatable'; // Import the event type
 
 interface Artwork {
     id: number;
@@ -20,15 +22,17 @@ const App: React.FC = () => {
     const [selectedRows, setSelectedRows] = useState<{ [key: number]: boolean }>({});
     const [loading, setLoading] = useState<boolean>(false);
     const [totalRecords, setTotalRecords] = useState<number>(0);
-    const [currentPage, setCurrentPage] = useState<number>(0); // Set initial page to 0 (zero-indexed for PrimeReact)
+    const [currentPage, setCurrentPage] = useState<number>(0);
     const [allSelected, setAllSelected] = useState<boolean>(false);
     const [rowCount, setRowCount] = useState<number>(1);
+    const [inputValue, setInputValue] = useState<number>(1); // State for input value in OverlayPanel
+    const op = useRef<OverlayPanel>(null); // Ref for OverlayPanel
 
     // Fetch data for the current page
     const fetchData = async (page: number) => {
         setLoading(true);
         try {
-            const response = await axios.get(`https://api.artic.edu/api/v1/artworks?page=${page}`);
+            const response = await axios.get(`https://api.artic.edu/api/v1/artworks?page=${page}&size=10`);
             const { data, pagination } = response.data;
             setArtworks(data.map((item: any) => ({
                 id: item.id,
@@ -40,7 +44,7 @@ const App: React.FC = () => {
                 date_end: item.date_end,
             })));
             setTotalRecords(pagination.total);
-            setCurrentPage(page - 1); // Adjust for zero-indexing in PrimeReact
+            setCurrentPage(page - 1);
         } catch (error) {
             console.error('Error fetching data:', error);
         } finally {
@@ -81,9 +85,23 @@ const App: React.FC = () => {
     };
 
     // Handle page change
-    const onPageChange = (event: { first: number; rows: number; page: number }) => {
-        const newPage = event.page + 1; // Adjust for one-indexed API
-        fetchData(newPage);
+    const onPageChange = (event: DataTableStateEvent) => {
+        const page = event.page ?? 0;
+        fetchData(page + 1);
+        setCurrentPage(page);
+    };
+
+    // Handle input change in the OverlayPanel
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = parseInt(e.target.value, 10);
+        setInputValue(isNaN(value) ? 1 : value); // Ensure input value is a number
+    };
+
+    // Apply the changes when the OverlayPanel input value is submitted
+    const applyChanges = () => {
+        setRowCount(inputValue);
+        op.current?.hide(); // Hide the OverlayPanel
+        toggleVisibleRows(); // Apply the row toggling based on the input value
     };
 
     // Render the checkbox for each row
@@ -91,7 +109,7 @@ const App: React.FC = () => {
         <Checkbox
             inputId={`checkbox-${rowData.id}`}
             checked={selectedRows[rowData.id] || false}
-            onChange={(e) => onRowSelectChange(rowData.id, e.checked=true)}
+            onChange={(e) => onRowSelectChange(rowData.id, e.checked || false)}
         />
     );
 
@@ -105,8 +123,8 @@ const App: React.FC = () => {
                 totalRecords={totalRecords}
                 lazy
                 loading={loading}
-                onChange={onPageChange}// Corrected prop for pagination
-                first={currentPage * 10} // Calculate first row index
+                onPage={onPageChange}
+                first={currentPage * 10}
                 rowHover
                 paginatorTemplate="CurrentPageReport FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown"
                 currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
@@ -130,6 +148,20 @@ const App: React.FC = () => {
                 <Column field="date_start" header="Date Start" />
                 <Column field="date_end" header="Date End" />
             </DataTable>
+
+            {/* OverlayPanel for Input */}
+            <OverlayPanel ref={op}>
+                <div>
+                    <input
+                        type="number"
+                        value={inputValue}
+                        onChange={handleInputChange}
+                        min={1}
+                    />
+                    <button onClick={applyChanges}>Apply</button>
+                </div>
+            </OverlayPanel>
+            <button onClick={(e) => op.current?.toggle(e)}>Show Overlay</button>
         </div>
     );
 };
