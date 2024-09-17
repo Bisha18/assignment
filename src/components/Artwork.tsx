@@ -20,7 +20,7 @@ const App: React.FC = () => {
     const [selectedRows, setSelectedRows] = useState<{ [key: number]: boolean }>({});
     const [loading, setLoading] = useState<boolean>(false);
     const [totalRecords, setTotalRecords] = useState<number>(0);
-    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [currentPage, setCurrentPage] = useState<number>(0); // Set initial page to 0 (zero-indexed for PrimeReact)
     const [allSelected, setAllSelected] = useState<boolean>(false);
     const [rowCount, setRowCount] = useState<number>(1);
 
@@ -40,7 +40,7 @@ const App: React.FC = () => {
                 date_end: item.date_end,
             })));
             setTotalRecords(pagination.total);
-            setCurrentPage(page);
+            setCurrentPage(page - 1); // Adjust for zero-indexing in PrimeReact
         } catch (error) {
             console.error('Error fetching data:', error);
         } finally {
@@ -82,7 +82,8 @@ const App: React.FC = () => {
 
     // Handle page change
     const onPageChange = (event: { first: number; rows: number; page: number }) => {
-        fetchData(event.page + 1);
+        const newPage = event.page + 1; // Adjust for one-indexed API
+        fetchData(newPage);
     };
 
     // Render the checkbox for each row
@@ -90,7 +91,7 @@ const App: React.FC = () => {
         <Checkbox
             inputId={`checkbox-${rowData.id}`}
             checked={selectedRows[rowData.id] || false}
-            onChange={(e) => onRowSelectChange(rowData.id, e.checked)}
+            onChange={(e) => onRowSelectChange(rowData.id, e.checked=true)}
         />
     );
 
@@ -104,8 +105,8 @@ const App: React.FC = () => {
                 totalRecords={totalRecords}
                 lazy
                 loading={loading}
-                onPage={onPageChange}
-                first={(currentPage - 1) * 10}
+                onChange={onPageChange}// Corrected prop for pagination
+                first={currentPage * 10} // Calculate first row index
                 rowHover
                 paginatorTemplate="CurrentPageReport FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown"
                 currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
